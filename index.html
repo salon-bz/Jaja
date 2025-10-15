@@ -1,0 +1,214 @@
+<!DOCTYPE html><html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MOD MENU SIN METODO</title>
+  <style>
+    :root {
+      --bg1: 0, 255, 180;
+      --bg2: 255, 0, 150;
+      --accent: 0, 255, 255;
+      --radius: 18px;
+      --gap: 14px;
+      --max-card-width: 420px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      background: radial-gradient(circle at top left, rgba(var(--bg1), 0.15), transparent),
+                  radial-gradient(circle at bottom right, rgba(var(--bg2), 0.15), transparent),
+                  linear-gradient(135deg, #000010 0%, #050014 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-family: 'Poppins', sans-serif;
+      color: #00ffee;
+      text-shadow: 0 0 6px rgba(0,255,255,0.7);
+    }
+
+    canvas#particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .card-wrap {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: var(--max-card-width);
+      display: flex;
+      justify-content: center;
+    }
+
+    .card {
+      width: 100%;
+      background: rgba(10, 10, 20, 0.6);
+      border: 1px solid rgba(0, 255, 255, 0.2);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+      backdrop-filter: blur(14px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: rgb-glow 6s linear infinite;
+    }
+
+    @keyframes rgb-glow {
+      0% { box-shadow: 0 0 30px rgba(0,255,255,0.5); border-color: rgba(0,255,255,0.6); }
+      33% { box-shadow: 0 0 30px rgba(255,0,255,0.5); border-color: rgba(255,0,255,0.6); }
+      66% { box-shadow: 0 0 30px rgba(255,255,0,0.5); border-color: rgba(255,255,0,0.6); }
+      100% { box-shadow: 0 0 30px rgba(0,255,255,0.5); border-color: rgba(0,255,255,0.6); }
+    }
+
+    h1 {
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 0 8px #00ffff, 0 0 16px #ff00ff;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+
+    .image-box {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 14px;
+      padding: 12px;
+      margin-top: 10px;
+      background: linear-gradient(135deg, rgba(var(--bg1), 0.2), rgba(var(--bg2), 0.2));
+      box-shadow: 0 0 20px rgba(0,255,255,0.2);
+    }
+
+    .image-box img {
+      max-width: 90%;
+      border-radius: 12px;
+      box-shadow: 0 0 25px rgba(0,255,255,0.3);
+      transition: transform 0.4s ease, box-shadow 0.4s ease;
+    }
+
+    .image-box img:hover {
+      transform: scale(1.07);
+      box-shadow: 0 0 35px rgba(255,0,255,0.6);
+    }
+
+    .actions {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    a.btn {
+      display: block;
+      text-align: center;
+      padding: 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      letter-spacing: 1px;
+      color: #fff;
+      background: linear-gradient(90deg, rgba(var(--bg1), 0.7), rgba(var(--bg2), 0.7));
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+    }
+
+    a.btn:hover {
+      transform: translateY(-4px) scale(1.02);
+      filter: brightness(1.4);
+      box-shadow: 0 0 35px rgba(255, 0, 255, 0.5);
+    }
+
+    .meta {
+      margin-top: 10px;
+      font-size: 12px;
+      color: rgba(0, 255, 255, 0.6);
+      text-align: center;
+      text-shadow: 0 0 6px rgba(0,255,255,0.5);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles"></canvas>
+  <main class="card-wrap">
+    <section class="card">
+      <h1>𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 𝐌𝐎𝐃 𝐌𝐄𝐍𝐔</h1>
+      <div class="image-box">
+        <img src="https://i.postimg.cc/jSn88hqj/Polish-20251014-224733523.jpg" alt="Preview del mod" />
+      </div>
+      <div class="actions">
+        <a class="btn" href="https://www.mediafire.com/file/8iltssj10cers77/PANEL_GRATIS%25F0%259F%25A5%25B0.zip/file" target="_blank">𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃</a>
+        <a class="btn" href="https://chat.whatsapp.com/EBP8sfNIKvIEoelECMrmst?mode=ems_copy_t" target="_blank">𝐆𝐑𝐔𝐏𝐎 𝐃𝐄 𝐖𝐇𝐀𝐓𝐒𝐀𝐏𝐏</a>
+      </div>
+      <p class="meta">2024 - 2025 𝐋𝐔𝐂𝐊 𝐗!𝐓</p>
+    </section>
+  </main>
+  <script>
+    const canvas = document.getElementById('particles');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 2 + 1;
+        this.speedX = Math.random() * 1 - 0.5;
+        this.speedY = Math.random() * 1 - 0.5;
+        this.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+      }
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = this.color;
+        ctx.fill();
+      }
+    }
+
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < 120; i++) {
+        particles.push(new Particle());
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+      requestAnimationFrame(animate);
+    }
+
+    initParticles();
+    animate();
+  </script>
+</body>
+</html>
