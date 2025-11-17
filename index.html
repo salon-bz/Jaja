@@ -1,67 +1,247 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login con Google vía Firebase</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SociosXIT - Acceso</title>
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> 
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Estilos base (Mantenidos) */
+    * { box-sizing: border-box; font-family: "Poppins", sans-serif; }
+    body { display: flex; justify-content: center; align-items: center; height: 100vh; background: linear-gradient(135deg, #ff0080, #7928ca, #2af599); background-size: 400% 400%; animation: bgMove 10s ease infinite; margin: 0; }
+    @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    .container { width: 90%; max-width: 400px; background: rgba(255,255,255,0.15); border-radius: 20px; overflow: hidden; backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 10px 30px rgba(255,255,255,0.3); transition: all 0.5s ease; padding: 2rem; text-align: center; color: white; }
+    h2 { color: white; margin-bottom: 1rem; font-size: 1.8rem; text-shadow: 0 0 10px #ff80ff, 0 0 20px #60a5fa; }
+    input { padding: 12px; margin: 8px 0; border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; width: 100%; background: rgba(255,255,255,0.15); color: white; text-align: center; outline: none; transition: 0.3s; }
+    input::placeholder { color: rgba(255,255,255,0.7); }
+    input:focus { border-color: #ff80ff; box-shadow: 0 0 12px #ff80ff; }
+    /* Estilos para el botón estándar */
+    button.primary-btn { background: linear-gradient(90deg, #00c6ff, #0072ff); color: white; border: none; padding: 12px; border-radius: 10px; cursor: pointer; margin-top: 10px; transition: 0.3s; width: 100%; font-weight: 600; }
+    button.primary-btn:hover { transform: scale(1.03); box-shadow: 0 0 20px currentColor; }
+    /* Estilos para el botón de Google */
+    .google-btn { background: white; color: #444; border: 1px solid #ccc; padding: 12px; border-radius: 10px; cursor: pointer; margin-top: 15px; transition: 0.3s; width: 100%; font-weight: 600; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px 0 rgba(0,0,0,0.2); }
+    .google-btn:hover { background: #f1f1f1; transform: scale(1.03); }
+    .google-btn i { margin-right: 10px; font-size: 1.2rem; color: #db4437; }
 
-<!-- Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+    p { margin-top: 1rem; font-size: 0.9rem; }
+    a { color: #ffe0ff; text-decoration: none; font-weight: 600; cursor: pointer; }
+    .hidden { display: none; }
+    @media (max-width: 480px) { .container { width: 95%; border-radius: 15px; } }
 
-<!-- Firebase -->
-<script type="module" src="firebase-config.js"></script>
-<script type="module" src="app.js" defer></script>
-
-<style>
-body {
-  background: #0072ff;
-  height: 100vh;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-family:Arial;
-}
-.card {
-  background:white;
-  padding:25px;
-  border-radius:15px;
-  box-shadow:0 5px 25px rgba(0,0,0,0.25);
-  width:350px;
-  text-align:center;
-}
-#user-photo{
-  width:80px;height:80px;border-radius:50%;margin:10px 0;
-}
-button{
-  margin-top:10px;
-  background:#ff4b5c;
-  color:#fff;
-  padding:10px 20px;
-  border:none;
-  border-radius:8px;
-  cursor:pointer;
-}
-</style>
+    /* --- ESTILOS DEL MODAL DE ÉXITO (Mantenidos) --- */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
+    .modal-content { background: #1c1c1c; border-radius: 15px; width: 90%; max-width: 450px; padding: 30px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); border: 2px solid #2af599; transform: scale(0.8); opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; }
+    .modal-overlay.show .modal-content { transform: scale(1); opacity: 1; }
+    .modal-icon { font-size: 4rem; color: #2af599; margin-bottom: 15px; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    .modal-title { font-size: 1.8rem; color: #fff; margin-bottom: 10px; font-weight: 700; }
+    .modal-body { color: #ccc; margin-bottom: 25px; line-height: 1.5; text-align: left; background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 10px; border-left: 5px solid #ff0080; }
+    .modal-body strong { color: #2af599; font-weight: 600; }
+    .modal-button { background: linear-gradient(90deg, #ff0080, #7928ca); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; width: 100%; }
+    .modal-button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255, 0, 128, 0.5); }
+    /* Fin Estilos Modal */
+  </style>
 </head>
-
 <body>
+  <div class="container">
+    <div id="loginView">
+      <h2>Iniciar Sesión</h2>
+      <input type="text" id="loginUser" placeholder="Usuario" />
+      <input type="password" id="loginPass" placeholder="Contraseña" />
+      <button id="loginBtn" class="primary-btn">Entrar</button>
+      
+      <button class="google-btn" id="googleLoginBtn">
+        <i class="fab fa-google"></i>
+        Iniciar Sesión con Google
+      </button>
 
-<div class="card">
+      <p>¿No tienes cuenta? <a id="goRegister">Regístrate</a></p>
+    </div>
 
-  <h2 id="title">Login con Google</h2>
+    <div id="registerView" class="hidden">
+      <h2>Crear Cuenta</h2>
+      <input type="text" id="regUser" placeholder="Usuario" />
+      <input type="password" id="regPass" placeholder="Contraseña" />
+      <button id="regBtn" class="primary-btn">Registrarse</button>
 
-  <!-- Botón real de Google -->
-  <div id="g_id_signin"></div>
-
-  <!-- Información del usuario -->
-  <div id="user-info" style="display:none;">
-    <img id="user-photo">
-    <h3 id="user-name"></h3>
-    <p id="user-email"></p>
-    <button onclick="logout()">Cerrar sesión</button>
+      <button class="google-btn" id="googleRegisterBtn">
+        <i class="fab fa-google"></i>
+        Registrarse con Google
+      </button>
+      
+      <p>¿Ya tienes cuenta? <a id="goLogin">Inicia sesión</a></p>
+    </div>
   </div>
 
-</div>
+  <div id="successModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-icon">🎉</div>
+      <div class="modal-title">¡Bienvenido a ser socio!</div>
+      <div class="modal-body">
+        <p id="successMessage"></p> 
+        <p>⚠️ Por favor, **guarda tu archivo de credenciales o recuerda tu correo de Google** mientras el desarrollador implementa mayor seguridad en la plataforma.</p>
+      </div>
+      <button class="modal-button" id="closeModalBtn">Entendido</button>
+    </div>
+  </div>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCr1-2dIqgxoXBTKYgSusnUZorUICX2Too",
+      authDomain: "chatglobal-e9370.firebaseapp.com",
+      databaseURL: "https://chatglobal-e9370-default-rtdb.firebaseio.com",
+      projectId: "chatglobal-e9370",
+      storageBucket: "chatglobal-e9370.firebasestorage.app",
+      messagingSenderId: "382420208590",
+      appId: "1:382420208590:web:9425fa28c8cdf669adb99f"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const auth = firebase.auth(); // Referencia a Firebase Auth
+    const usersRef = db.ref("users");
 
+    const views = ["loginView", "registerView"];
+    const show = (id) => views.forEach(v => document.getElementById(v).classList.toggle("hidden", v !== id));
+
+    document.getElementById("goRegister").onclick = () => show("registerView");
+    document.getElementById("goLogin").onclick = () => show("loginView");
+
+    // Función para mostrar/ocultar el modal
+    const successModal = document.getElementById("successModal");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const successMessage = document.getElementById("successMessage");
+
+    const showModal = (message, download = true) => {
+        if (download) {
+            successMessage.innerHTML = `✅ Tu cuenta ha sido creada con **éxito**.<br>💾 Tu información de acceso se descargó **automáticamente** en el archivo \`credenciales.txt\`.`;
+        } else {
+            successMessage.innerHTML = `✅ Has iniciado sesión o te has registrado con **Google** exitosamente.`;
+        }
+        successModal.classList.remove("hidden");
+        setTimeout(() => successModal.classList.add("show"), 10); 
+    };
+
+    const hideModal = () => {
+        successModal.classList.remove("show");
+        setTimeout(() => {
+            successModal.classList.add("hidden");
+            show("loginView"); // Volver a la vista de login al cerrar el modal
+        }, 300); 
+    };
+
+    closeModalBtn.onclick = hideModal;
+
+    // --- FUNCION PARA DESCARGAR CREDENCIALES (Mantenido) ---
+    function descargarCredenciales(usuario, password) {
+      const fecha = new Date();
+      const contenido = `🎉 Bienvenido a SociosXIT!\n\nUsuario: ${usuario}\nContraseña: ${password}\nFecha de registro: ${fecha.toLocaleString()}\n\nPor favor, guarda este archivo en un lugar seguro mientras el desarrollador implementa mayor seguridad en la plataforma.`;
+      const blob = new Blob([contenido], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "credenciales.txt";
+      link.click();
+    }
+
+    // --- REGISTRO (Mantenido) ---
+    document.getElementById("regBtn").onclick = async () => {
+      const user = regUser.value.trim();
+      const pass = regPass.value.trim();
+      if (!user || !pass) return alert("Completa todos los campos");
+
+      try {
+        const snap = await usersRef.child(user).once("value");
+        if (snap.exists()) return alert("El usuario ya existe");
+
+        // Nota: En un entorno real, es mejor usar Firebase Auth para email/pass en lugar de solo la base de datos
+        // pero mantengo la lógica original para respetar el 100% de tu código.
+        await usersRef.child(user).set({ password: pass, verified: true });
+
+        descargarCredenciales(user, pass);
+        showModal(true); 
+      } catch (error) {
+        console.error("Error al registrar: ", error);
+        alert("Ocurrió un error al registrar: " + error.message);
+      }
+    };
+
+    // --- LOGIN (Mantenido) ---
+    document.getElementById("loginBtn").onclick = async () => {
+      const user = loginUser.value.trim();
+      const pass = loginPass.value.trim();
+      if (!user || !pass) return alert("Completa todos los campos");
+
+      try {
+        const snap = await usersRef.child(user).once("value");
+        if (!snap.exists() || snap.val().password !== pass) return alert("Datos incorrectos");
+
+        sessionStorage.setItem("sociosxit_user", user);
+        window.location.href = "dashboard.html";
+      } catch (error) {
+        console.error("Error al iniciar sesión: ", error);
+        alert("Ocurrió un error al iniciar sesión: " + error.message);
+      }
+    };
+
+    // ------------------------------------------------------------------
+    // --- NUEVA LÓGICA DE INICIO DE SESIÓN/REGISTRO CON GOOGLE ---
+    // ------------------------------------------------------------------
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    async function signInWithGoogle() {
+      try {
+        // Iniciar sesión con la ventana emergente de Google
+        const result = await auth.signInWithPopup(provider);
+        const user = result.user;
+        const email = user.email; // Usamos el email como identificador principal
+        const uid = user.uid; // ID único de Firebase Auth
+        
+        // Usamos el UID o el email (adaptado a tu estructura de DB con "users")
+        const dbId = uid; // Usar el UID de Auth es mejor para evitar problemas con carácteres del email en la URL de DB
+
+        // 1. Verificar si el usuario ya existe en tu Realtime Database
+        const snap = await usersRef.child(dbId).once("value");
+
+        if (!snap.exists()) {
+          // Es un nuevo registro, guardar en tu Realtime Database
+          await usersRef.child(dbId).set({
+            email: email,
+            name: user.displayName || "Google User",
+            verified: true,
+            provider: 'google'
+          });
+          console.log("Nuevo usuario de Google registrado en DB.");
+          // No se descargan credenciales, pero se muestra el modal de éxito.
+          showModal(false); 
+
+        } else {
+          // Es un inicio de sesión existente
+          console.log("Usuario de Google ya existe en DB. Iniciando sesión.");
+        }
+
+        // 2. Iniciar sesión en la aplicación (usando el UID como identificador)
+        sessionStorage.setItem("sociosxit_user", dbId);
+        window.location.href = "dashboard.html";
+
+      } catch (error) {
+        // Manejo de errores (por ejemplo, el usuario cerró el popup)
+        console.error("Error en la autenticación con Google:", error);
+        if (error.code === 'auth/popup-closed-by-user') {
+            alert("La ventana de inicio de sesión con Google fue cerrada.");
+        } else {
+            alert("Ocurrió un error al iniciar sesión con Google: " + error.message);
+        }
+      }
+    }
+
+    // Asignar la función a los botones de Google en ambas vistas
+    document.getElementById("googleLoginBtn").onclick = signInWithGoogle;
+    document.getElementById("googleRegisterBtn").onclick = signInWithGoogle;
+
+  </script>
 </body>
 </html>
