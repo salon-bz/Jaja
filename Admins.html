@@ -1,156 +1,162 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Vincular Cuentas Manuales a Google - SociosXIT</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Migrar Usuarios a Google</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
 
 <style>
-body {
-  background: #111;
-  font-family: Arial;
-  color: white;
-  padding: 20px;
-}
-.container {
-  background: #222;
-  padding: 20px;
-  border-radius: 10px;
-  max-width: 500px;
-}
-.user-box {
-  background: #333;
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 10px;
-}
-button {
-  padding: 10px;
-  background: #2af599;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-}
-button:hover { background: #1cd481; }
+    body {
+        background: #111;
+        color: white;
+        font-family: Arial;
+        padding: 20px;
+    }
+    .box {
+        background: #1f1f1f;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        border-left: 5px solid #2af599;
+    }
+    #migrarBtn {
+        background: #2af599;
+        padding: 12px;
+        width: 100%;
+        border: none;
+        color: #111;
+        font-size: 18px;
+        border-radius: 10px;
+        cursor: pointer;
+        margin-top: 15px;
+    }
+    #migrarBtn:hover {
+        background: #23cc81;
+    }
 </style>
 </head>
-
 <body>
 
-<h1>🔗 Vincular Usuarios Manuales con Google</h1>
+<h2>Migrar Usuario Manual → Google</h2>
 
-<div class="container">
-  <h3>Usuarios Registrados Manualmente</h3>
-  <div id="userList">Cargando usuarios...</div>
-</div>
+<p>1️⃣ Selecciona un usuario manual<br>  
+2️⃣ Inicia sesión con Google<br>  
+3️⃣ Automáticamente se migrarán los datos a la nueva cuenta Google</p>
+
+<div id="userList">Cargando usuarios...</div>
+
+<button id="migrarBtn">Migrar usuario seleccionado a Google</button>
 
 <script>
-/* ------------------------ CONFIG FIREBASE ------------------------ */
 const firebaseConfig = {
-  apiKey: "AIzaSyCr1-2dIqgxoXBTKYgSusnUZorUICX2Too",
-  authDomain: "chatglobal-e9370.firebaseapp.com",
-  databaseURL: "https://chatglobal-e9370-default-rtdb.firebaseio.com",
-  projectId: "chatglobal-e9370",
-  storageBucket: "chatglobal-e9370.firebasestorage.app",
-  messagingSenderId: "382420208590",
-  appId: "1:382420208590:web:9425fa28c8cdf669adb99f"
+    apiKey: "AIzaSyCr1-2dIqgxoXBTKYgSusnUZorUICX2Too",
+    authDomain: "chatglobal-e9370.firebaseapp.com",
+    databaseURL: "https://chatglobal-e9370-default-rtdb.firebaseio.com",
+    projectId: "chatglobal-e9370",
+    storageBucket: "chatglobal-e9370.firebasestorage.app",
+    messagingSenderId: "382420208590",
+    appId: "1:382420208590:web:9425fa28c8cdf669adb99f"
 };
 
 firebase.initializeApp(firebaseConfig);
 
 const db = firebase.database();
 const auth = firebase.auth();
+
 const usersRef = db.ref("users");
 const uidMapRef = db.ref("uid_map");
 
-const MANUAL_EMAIL_DOMAIN = "@sociosxit-manual.com";
-const provider = new firebase.auth.GoogleAuthProvider();
+const container = document.getElementById("userList");
 
-/* ------------------------ LISTAR USUARIOS ------------------------ */
-usersRef.once("value", snap => {
-  const list = document.getElementById("userList");
-  list.innerHTML = "";
+// ---------------------------
+// Cargar usuarios manuales
+// ---------------------------
+usersRef.on("value", snap => {
+    container.innerHTML = "";
+    const users = snap.val();
 
-  snap.forEach(child => {
-    const name = child.key;
-    const data = child.val();
+    if (!users) {
+        container.innerHTML = "<p>No hay usuarios registrados.</p>";
+        return;
+    }
 
-    const box = document.createElement("div");
-    box.classList.add("user-box");
+    Object.entries(users).forEach(([username, data]) => {
 
-    box.innerHTML = `
-      <strong>${name}</strong><br>
-      Registrado con: <span style="color:#2af599;">${data.provider || "manual"}</span><br>
-      ${data.uid ? "<span style='color:#0f0'>✔ Ya vinculado</span>" : "<span style='color:#f55'>✖ No vinculado</span>"}
-      <br><br>
-      <button onclick="vincular('${name}')">Vincular a Google</button>
-    `;
+        // Solo usuarios manuales
+        if (data.provider === "google") return;
 
-    list.appendChild(box);
-  });
+        const box = document.createElement("div");
+        box.className = "box";
+        box.innerHTML = `
+            <label>
+                <input type="radio" name="manualUser" value="${username}">
+                <strong>${username}</strong><br>
+                <small>Email: ${data.email ?? "sin email"}</small>
+            </label>
+        `;
+        container.appendChild(box);
+    });
 });
 
-/* --------------- FUNCIÓN PARA LOGUEAR TEMPORAL EN AUTH ----------- */
-async function loginManualToAuth(username, password) {
-  const email = username + MANUAL_EMAIL_DOMAIN;
+// ---------------------------
+// Migrar datos
+// ---------------------------
+async function migrarCuenta(manualUser, googleUID) {
+    // 1. Obtener data del usuario manual
+    const snap = await usersRef.child(manualUser).once("value");
+    const manualData = snap.val();
 
-  try {
-    return (await auth.signInWithEmailAndPassword(email, password)).user;
-  } catch (error) {
-    if (error.code === "auth/user-not-found") {
-      return (await auth.createUserWithEmailAndPassword(email, password)).user;
+    if (!manualData) {
+        alert("Error: usuario manual no existe.");
+        return;
     }
-    throw error;
-  }
+
+    // 2. Guardar el data en la cuenta Google
+    await usersRef.child(googleUID).update(manualData);
+
+    // 3. Borrar uid_map si tenía
+    if (manualData.uid) {
+        await uidMapRef.child(manualData.uid).remove();
+    }
+
+    // 4. Borrar el usuario manual original
+    await usersRef.child(manualUser).remove();
+
+    alert("Migración completada correctamente.");
 }
 
-/* --------------------- FUNCIÓN DE VINCULACIÓN --------------------- */
-async function vincular(username) {
-  const snap = await usersRef.child(username).once("value");
+// ---------------------------
+// Botón para iniciar migración
+// ---------------------------
+document.getElementById("migrarBtn").onclick = () => {
+    const manualUser = document.querySelector("input[name='manualUser']:checked");
 
-  if (!snap.exists()) return alert("Usuario no encontrado.");
+    if (!manualUser) {
+        alert("Selecciona un usuario manual.");
+        return;
+    }
 
-  const data = snap.val();
+    const userName = manualUser.value;
 
-  if (data.uid) return alert("Este usuario ya está vinculado.");
+    const provider = new firebase.auth.GoogleAuthProvider();
 
-  const password = data.password;
-  if (!password) return alert("Esta cuenta no es manual.");
+    // Abrir login Google
+    auth.signInWithPopup(provider)
+        .then(result => {
+            const googleUID = result.user.uid;
 
-  try {
-    // 1. Entrar temporalmente con Firebase Auth
-    const tempAuthUser = await loginManualToAuth(username, password);
-
-    // 2. Vincular con Google
-    const linkResult = await tempAuthUser.linkWithPopup(provider);
-
-    const googleUser = linkResult.user;
-
-    // 3. Actualizar DB
-    await usersRef.child(username).update({
-      uid: googleUser.uid,
-      email: googleUser.email,
-      name: googleUser.displayName || username,
-      provider: "google_linked",
-      linked_at: new Date().toISOString()
-    });
-
-    // 4. Crear mapa UID -> usuario
-    await uidMapRef.child(googleUser.uid).set(username);
-
-    alert(`✔ El usuario ${username} fue vinculado exitosamente 🔗`);
-
-  } catch (err) {
-    console.error(err);
-    alert("Error al vincular: " + err.message);
-  } finally {
-    auth.signOut();
-  }
-}
+            // Ejecutar migración
+            migrarCuenta(userName, googleUID);
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error al iniciar sesión con Google.");
+        });
+};
 </script>
 
 </body>
