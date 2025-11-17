@@ -97,13 +97,13 @@
 
 // --- Firebase Configuración (unchanged) ---
 const firebaseConfig = {
-  apiKey: "AIzaSyAcbewB4Orpx4JyaXq141GgUidJbXUrEnY",
-  authDomain: "sociosxit-5f841.firebaseapp.com",
-  databaseURL: "https://sociosxit-5f841-default-rtdb.firebaseio.com",
-  projectId: "sociosxit-5f841",
-  storageBucket: "sociosxit-5f841.firebasestorage.app",
-  messagingSenderId: "364183519851",
-  appId: "1:364183519851:web:52a5a95d2c57f8f9f5e72e"
+  apiKey: "AIzaSyCr1-2dIqgxoXBTKYgSusnUZorUICX2Too",
+  authDomain: "chatglobal-e9370.firebaseapp.com",
+  databaseURL: "https://chatglobal-e9370-default-rtdb.firebaseio.com",
+  projectId: "chatglobal-e9370",
+  storageBucket: "chatglobal-e9370.firebasestorage.app",
+  messagingSenderId: "382420208590",
+  appId: "1:382420208590:web:9425fa28c8cdf669adb99f"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
