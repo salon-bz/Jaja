@@ -26,6 +26,9 @@
     .google-btn { background: white; color: #444; border: 1px solid #ccc; padding: 12px; border-radius: 10px; cursor: pointer; margin-top: 15px; transition: 0.3s; width: 100%; font-weight: 600; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px 0 rgba(0,0,0,0.2); }
     .google-btn:hover { background: #f1f1f1; transform: scale(1.03); }
     .google-btn i { margin-right: 10px; font-size: 1.2rem; color: #db4437; }
+    /* Estilo para el nuevo botón de vincular */
+    .link-btn { background: none; border: 1px solid rgba(255, 255, 255, 0.5); color: #fff; padding: 8px; border-radius: 10px; cursor: pointer; margin-top: 15px; transition: 0.3s; width: 100%; font-weight: 400; font-size: 0.9rem; }
+    .link-btn:hover { background: rgba(255, 255, 255, 0.1); transform: scale(1.02); }
 
     p { margin-top: 1rem; font-size: 0.9rem; }
     a { color: #ffe0ff; text-decoration: none; font-weight: 600; cursor: pointer; }
@@ -55,6 +58,10 @@
       <input type="password" id="loginPass" placeholder="Contraseña" />
       <button id="loginBtn" class="primary-btn">Entrar</button>
       
+      <button class="link-btn" id="goLinkAccount">
+        Vincular Cuenta Existente a Google
+      </button>
+
       <button class="google-btn" id="googleLoginBtn">
         <i class="fab fa-google"></i>
         Iniciar Sesión con Google
@@ -88,6 +95,17 @@
         *Este usuario será tu identificador.
       </p>
     </div>
+    <div id="linkAccountView" class="hidden">
+        <h2>Vincular a Google</h2>
+        <p style="color: #ccc; margin-bottom: 15px; font-size: 0.9rem;">
+            Ingresa tu **Usuario** y **Contraseña** actuales para vincular tu cuenta a Google.
+            <br><span style="color:#2af599;">Podrás usar Google para entrar a partir de ahora.</span>
+        </p>
+        <input type="text" id="linkUser" placeholder="Tu Usuario actual" />
+        <input type="password" id="linkPass" placeholder="Tu Contraseña actual" />
+        <button id="linkAccountBtn" class="primary-btn">Vincular Cuenta</button>
+        <p><a id="goBackToLogin">Volver a Iniciar Sesión</a></p>
+    </div>
     </div>
 
   <div id="successModal" class="modal-overlay hidden">
@@ -115,26 +133,31 @@
     const db = firebase.database();
     const auth = firebase.auth(); 
     const usersRef = db.ref("users");
-    // Nueva referencia para mapear UID de Google al nombre de usuario
     const uidMapRef = db.ref("uid_map"); 
+    const MANUAL_EMAIL_DOMAIN = "@sociosxit-manual.com"; // Dominio de puente para cuentas manuales
 
     // Se añade la nueva vista al control
-    const views = ["loginView", "registerView", "usernamePromptView"];
+    const views = ["loginView", "registerView", "usernamePromptView", "linkAccountView"];
     const show = (id) => views.forEach(v => document.getElementById(v).classList.toggle("hidden", v !== id));
 
     document.getElementById("goRegister").onclick = () => show("registerView");
     document.getElementById("goLogin").onclick = () => show("loginView");
+    document.getElementById("goLinkAccount").onclick = () => show("linkAccountView");
+    document.getElementById("goBackToLogin").onclick = () => show("loginView");
 
-    // Variable global para almacenar temporalmente los datos del usuario de Google
+
     let googleUserData = null; 
 
-    // Función para mostrar/ocultar el modal (Mantenida)
+    // --- FUNCIONES MODAL (Mantenidas) ---
+
     const successModal = document.getElementById("successModal");
     const closeModalBtn = document.getElementById("closeModalBtn");
     const successMessage = document.getElementById("successMessage");
 
-    const showModal = (isManualRegistration, username) => {
-        if (isManualRegistration) {
+    const showModal = (isManualRegistration, username, isLinking = false) => {
+        if (isLinking) {
+            successMessage.innerHTML = `🎉 ¡Éxito! Tu cuenta (**${username}**) ha sido vinculada con Google.<br> Ahora puedes iniciar sesión con un solo clic.`;
+        } else if (isManualRegistration) {
             successMessage.innerHTML = `✅ Tu cuenta (**${username}**) ha sido creada con **éxito**.<br>💾 Tu información de acceso se descargó **automáticamente** en el archivo \`credenciales.txt\`.`;
         } else {
             successMessage.innerHTML = `✅ Has completado tu registro (**${username}**) con **Google** exitosamente.`;
@@ -202,10 +225,7 @@
       }
     };
 
-    // ------------------------------------------------------------------
-    // --- LÓGICA DE INICIO DE SESIÓN CON GOOGLE ---
-    // ------------------------------------------------------------------
-
+    // --- LOGIN CON GOOGLE (Mantenido) ---
     const provider = new firebase.auth.GoogleAuthProvider();
 
     async function signInWithGoogle() {
@@ -214,21 +234,16 @@
         const user = result.user;
         const uid = user.uid; 
         
-        // 1. Verificar si el UID de Google ya está mapeado a un nombre de usuario
         const uidSnap = await uidMapRef.child(uid).once("value");
 
         if (uidSnap.exists()) {
-          // Usuario REGRESANDO: ya tiene un nombre de usuario asignado
           const customUser = uidSnap.val();
-          console.log(`Usuario de Google ${customUser} iniciando sesión.`);
-
           sessionStorage.setItem("sociosxit_user", customUser);
           window.location.href = "dashboard.html";
 
         } else {
-          // Usuario NUEVO: Necesita elegir un nombre de usuario
-          googleUserData = user; // Guardar temporalmente la info de Google
-          show("usernamePromptView"); // Mostrar la nueva vista para pedir el usuario
+          googleUserData = user; 
+          show("usernamePromptView"); 
           document.getElementById("promptUser").value = user.displayName ? user.displayName.replace(/\s/g, '').toLowerCase() : user.email.split('@')[0];
         }
 
@@ -242,23 +257,19 @@
       }
     }
 
-    // LÓGICA PARA EL BOTÓN DE SOLICITAR NOMBRE DE USUARIO
+    // --- PROMPT DE USUARIO (Mantenido) ---
     document.getElementById("promptUserBtn").onclick = async () => {
       const customUser = promptUser.value.trim();
 
-      if (!customUser) return alert("Por favor, ingresa un nombre de usuario.");
-      if (customUser.length < 3) return alert("El usuario debe tener al menos 3 caracteres.");
+      if (!customUser || customUser.length < 3) return alert("Ingresa un usuario válido (mínimo 3 caracteres).");
 
       try {
-        // 1. Verificar si el nombre de usuario ya está tomado
         const userSnap = await usersRef.child(customUser).once("value");
         if (userSnap.exists()) return alert(`El usuario '${customUser}' ya existe. Por favor, elige otro.`);
         
-        // 2. Obtener los datos temporales del usuario de Google
         const user = googleUserData;
         const uid = user.uid;
 
-        // 3. Registrar en la base de datos con el nombre de usuario
         await usersRef.child(customUser).set({
           uid: uid,
           email: user.email,
@@ -268,23 +279,94 @@
           registered_at: new Date().toISOString()
         });
 
-        // 4. Crear el mapeo UID -> Nombre de usuario
         await uidMapRef.child(uid).set(customUser);
-
-        // 5. Completar el inicio de sesión
         sessionStorage.setItem("sociosxit_user", customUser);
-        
-        // Mostrar el modal de éxito para el registro de Google
         showModal(false, customUser); 
-
-        // Después de cerrar el modal, se redirigirá desde hideModal.
-        // window.location.href = "dashboard.html"; // Comentar, lo maneja el cierre del modal
 
       } catch (error) {
         console.error("Error al finalizar el registro de Google:", error);
         alert("Ocurrió un error al finalizar el registro: " + error.message);
       }
     };
+
+    // --- NUEVA LÓGICA DE VINCULACIÓN DE CUENTA ---
+    
+    // Función para migrar/iniciar sesión temporalmente con Auth, necesario para linkWithPopup
+    async function loginManualToAuth(username, password) {
+        const email = username + MANUAL_EMAIL_DOMAIN;
+
+        try {
+            // Intentar iniciar sesión si ya existe en Firebase Auth
+            const userCredential = await auth.signInWithEmailAndPassword(email, password);
+            return userCredential.user;
+        } catch (error) {
+            if (error.code === 'auth/user-not-found') {
+                // Si no existe, crearlo para poder vincular
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                return userCredential.user;
+            } else {
+                // Otro error de autenticación
+                throw error; 
+            }
+        }
+    }
+
+    document.getElementById("linkAccountBtn").onclick = async () => {
+        const user = linkUser.value.trim();
+        const pass = linkPass.value.trim();
+
+        if (!user || !pass) return alert("Completa tu usuario y contraseña actuales.");
+
+        try {
+            // 1. Validar las credenciales en la Realtime Database
+            const snap = await usersRef.child(user).once("value");
+            if (!snap.exists() || snap.val().password !== pass) {
+                return alert("Usuario o Contraseña manual incorrectos.");
+            }
+
+            // 2. Verificar si ya está vinculado (opcional, pero buena práctica)
+            if (snap.val().uid) {
+                return alert("Esta cuenta ya está vinculada a un proveedor. Usa Google o tu usuario manual.");
+            }
+
+            // 3. Crear o iniciar sesión temporalmente en Firebase Auth (el puente)
+            const authUser = await loginManualToAuth(user, pass);
+
+            // 4. Vincular la cuenta temporal de Firebase Auth con Google
+            const linkResult = await authUser.linkWithPopup(provider);
+            const googleUid = linkResult.user.uid;
+            const googleEmail = linkResult.user.email;
+            const googleDisplayName = linkResult.user.displayName;
+
+            // 5. Actualizar la Realtime Database con el UID de Google
+            await usersRef.child(user).update({
+                uid: googleUid,
+                email: googleEmail,
+                name: googleDisplayName || user,
+                provider: 'google_linked',
+                linked_at: new Date().toISOString()
+            });
+
+            // 6. Crear el mapeo UID -> Nombre de usuario para futuros inicios de sesión con Google
+            await uidMapRef.child(googleUid).set(user);
+            
+            // 7. Completar el inicio de sesión y mostrar el éxito
+            sessionStorage.setItem("sociosxit_user", user);
+            showModal(false, user, true); // Último argumento 'true' indica que es una vinculación
+
+        } catch (error) {
+            console.error("Error en el proceso de vinculación:", error);
+            if (error.code === 'auth/credential-already-in-use') {
+                alert("La cuenta de Google seleccionada ya está vinculada a otra cuenta de SocioXIT.");
+            } else {
+                alert("Ocurrió un error al vincular la cuenta. Asegúrate de que no haya un conflicto de correo.");
+            }
+        } finally {
+            // Es crucial cerrar la sesión temporal de Auth
+            auth.signOut();
+        }
+    };
+
 
     // Asignar la función a los botones de Google
     document.getElementById("googleLoginBtn").onclick = signInWithGoogle;
