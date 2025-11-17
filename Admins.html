@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Vincular Cuentas Manuales a Google - SociosXIT</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+
+<style>
+body {
+  background: #111;
+  font-family: Arial;
+  color: white;
+  padding: 20px;
+}
+.container {
+  background: #222;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 500px;
+}
+.user-box {
+  background: #333;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+button {
+  padding: 10px;
+  background: #2af599;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+button:hover { background: #1cd481; }
+</style>
+</head>
+
+<body>
+
+<h1>🔗 Vincular Usuarios Manuales con Google</h1>
+
+<div class="container">
+  <h3>Usuarios Registrados Manualmente</h3>
+  <div id="userList">Cargando usuarios...</div>
+</div>
+
+<script>
+/* ------------------------ CONFIG FIREBASE ------------------------ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCr1-2dIqgxoXBTKYgSusnUZorUICX2Too",
+  authDomain: "chatglobal-e9370.firebaseapp.com",
+  databaseURL: "https://chatglobal-e9370-default-rtdb.firebaseio.com",
+  projectId: "chatglobal-e9370",
+  storageBucket: "chatglobal-e9370.firebasestorage.app",
+  messagingSenderId: "382420208590",
+  appId: "1:382420208590:web:9425fa28c8cdf669adb99f"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.database();
+const auth = firebase.auth();
+const usersRef = db.ref("users");
+const uidMapRef = db.ref("uid_map");
+
+const MANUAL_EMAIL_DOMAIN = "@sociosxit-manual.com";
+const provider = new firebase.auth.GoogleAuthProvider();
+
+/* ------------------------ LISTAR USUARIOS ------------------------ */
+usersRef.once("value", snap => {
+  const list = document.getElementById("userList");
+  list.innerHTML = "";
+
+  snap.forEach(child => {
+    const name = child.key;
+    const data = child.val();
+
+    const box = document.createElement("div");
+    box.classList.add("user-box");
+
+    box.innerHTML = `
+      <strong>${name}</strong><br>
+      Registrado con: <span style="color:#2af599;">${data.provider || "manual"}</span><br>
+      ${data.uid ? "<span style='color:#0f0'>✔ Ya vinculado</span>" : "<span style='color:#f55'>✖ No vinculado</span>"}
+      <br><br>
+      <button onclick="vincular('${name}')">Vincular a Google</button>
+    `;
+
+    list.appendChild(box);
+  });
+});
+
+/* --------------- FUNCIÓN PARA LOGUEAR TEMPORAL EN AUTH ----------- */
+async function loginManualToAuth(username, password) {
+  const email = username + MANUAL_EMAIL_DOMAIN;
+
+  try {
+    return (await auth.signInWithEmailAndPassword(email, password)).user;
+  } catch (error) {
+    if (error.code === "auth/user-not-found") {
+      return (await auth.createUserWithEmailAndPassword(email, password)).user;
+    }
+    throw error;
+  }
+}
+
+/* --------------------- FUNCIÓN DE VINCULACIÓN --------------------- */
+async function vincular(username) {
+  const snap = await usersRef.child(username).once("value");
+
+  if (!snap.exists()) return alert("Usuario no encontrado.");
+
+  const data = snap.val();
+
+  if (data.uid) return alert("Este usuario ya está vinculado.");
+
+  const password = data.password;
+  if (!password) return alert("Esta cuenta no es manual.");
+
+  try {
+    // 1. Entrar temporalmente con Firebase Auth
+    const tempAuthUser = await loginManualToAuth(username, password);
+
+    // 2. Vincular con Google
+    const linkResult = await tempAuthUser.linkWithPopup(provider);
+
+    const googleUser = linkResult.user;
+
+    // 3. Actualizar DB
+    await usersRef.child(username).update({
+      uid: googleUser.uid,
+      email: googleUser.email,
+      name: googleUser.displayName || username,
+      provider: "google_linked",
+      linked_at: new Date().toISOString()
+    });
+
+    // 4. Crear mapa UID -> usuario
+    await uidMapRef.child(googleUser.uid).set(username);
+
+    alert(`✔ El usuario ${username} fue vinculado exitosamente 🔗`);
+
+  } catch (err) {
+    console.error(err);
+    alert("Error al vincular: " + err.message);
+  } finally {
+    auth.signOut();
+  }
+}
+</script>
+
+</body>
+</html>
