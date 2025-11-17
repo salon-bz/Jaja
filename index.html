@@ -76,7 +76,19 @@
       
       <p>¿Ya tienes cuenta? <a id="goLogin">Inicia sesión</a></p>
     </div>
-  </div>
+
+    <div id="usernamePromptView" class="hidden">
+      <h2>Elige tu Usuario</h2>
+      <p style="color: #ccc; margin-bottom: 15px; font-size: 0.9rem;">
+        Solo necesitamos un nombre de usuario para tu cuenta.
+      </p>
+      <input type="text" id="promptUser" placeholder="Usuario deseado" />
+      <button id="promptUserBtn" class="primary-btn">Continuar</button>
+      <p style="color: #ffcccc;">
+        *Este usuario será tu identificador.
+      </p>
+    </div>
+    </div>
 
   <div id="successModal" class="modal-overlay hidden">
     <div class="modal-content">
@@ -101,25 +113,31 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const auth = firebase.auth(); // Referencia a Firebase Auth
+    const auth = firebase.auth(); 
     const usersRef = db.ref("users");
+    // Nueva referencia para mapear UID de Google al nombre de usuario
+    const uidMapRef = db.ref("uid_map"); 
 
-    const views = ["loginView", "registerView"];
+    // Se añade la nueva vista al control
+    const views = ["loginView", "registerView", "usernamePromptView"];
     const show = (id) => views.forEach(v => document.getElementById(v).classList.toggle("hidden", v !== id));
 
     document.getElementById("goRegister").onclick = () => show("registerView");
     document.getElementById("goLogin").onclick = () => show("loginView");
 
-    // Función para mostrar/ocultar el modal
+    // Variable global para almacenar temporalmente los datos del usuario de Google
+    let googleUserData = null; 
+
+    // Función para mostrar/ocultar el modal (Mantenida)
     const successModal = document.getElementById("successModal");
     const closeModalBtn = document.getElementById("closeModalBtn");
     const successMessage = document.getElementById("successMessage");
 
-    const showModal = (message, download = true) => {
-        if (download) {
-            successMessage.innerHTML = `✅ Tu cuenta ha sido creada con **éxito**.<br>💾 Tu información de acceso se descargó **automáticamente** en el archivo \`credenciales.txt\`.`;
+    const showModal = (isManualRegistration, username) => {
+        if (isManualRegistration) {
+            successMessage.innerHTML = `✅ Tu cuenta (**${username}**) ha sido creada con **éxito**.<br>💾 Tu información de acceso se descargó **automáticamente** en el archivo \`credenciales.txt\`.`;
         } else {
-            successMessage.innerHTML = `✅ Has iniciado sesión o te has registrado con **Google** exitosamente.`;
+            successMessage.innerHTML = `✅ Has completado tu registro (**${username}**) con **Google** exitosamente.`;
         }
         successModal.classList.remove("hidden");
         setTimeout(() => successModal.classList.add("show"), 10); 
@@ -129,13 +147,13 @@
         successModal.classList.remove("show");
         setTimeout(() => {
             successModal.classList.add("hidden");
-            show("loginView"); // Volver a la vista de login al cerrar el modal
+            show("loginView"); 
         }, 300); 
     };
 
     closeModalBtn.onclick = hideModal;
 
-    // --- FUNCION PARA DESCARGAR CREDENCIALES (Mantenido) ---
+    // --- FUNCION PARA DESCARGAR CREDENCIALES (Mantenida) ---
     function descargarCredenciales(usuario, password) {
       const fecha = new Date();
       const contenido = `🎉 Bienvenido a SociosXIT!\n\nUsuario: ${usuario}\nContraseña: ${password}\nFecha de registro: ${fecha.toLocaleString()}\n\nPor favor, guarda este archivo en un lugar seguro mientras el desarrollador implementa mayor seguridad en la plataforma.`;
@@ -146,7 +164,7 @@
       link.click();
     }
 
-    // --- REGISTRO (Mantenido) ---
+    // --- REGISTRO MANUAL (Mantenido) ---
     document.getElementById("regBtn").onclick = async () => {
       const user = regUser.value.trim();
       const pass = regPass.value.trim();
@@ -156,19 +174,17 @@
         const snap = await usersRef.child(user).once("value");
         if (snap.exists()) return alert("El usuario ya existe");
 
-        // Nota: En un entorno real, es mejor usar Firebase Auth para email/pass en lugar de solo la base de datos
-        // pero mantengo la lógica original para respetar el 100% de tu código.
         await usersRef.child(user).set({ password: pass, verified: true });
 
         descargarCredenciales(user, pass);
-        showModal(true); 
+        showModal(true, user); 
       } catch (error) {
         console.error("Error al registrar: ", error);
         alert("Ocurrió un error al registrar: " + error.message);
       }
     };
 
-    // --- LOGIN (Mantenido) ---
+    // --- LOGIN MANUAL (Mantenido) ---
     document.getElementById("loginBtn").onclick = async () => {
       const user = loginUser.value.trim();
       const pass = loginPass.value.trim();
@@ -187,48 +203,36 @@
     };
 
     // ------------------------------------------------------------------
-    // --- NUEVA LÓGICA DE INICIO DE SESIÓN/REGISTRO CON GOOGLE ---
+    // --- LÓGICA DE INICIO DE SESIÓN CON GOOGLE ---
     // ------------------------------------------------------------------
 
     const provider = new firebase.auth.GoogleAuthProvider();
 
     async function signInWithGoogle() {
       try {
-        // Iniciar sesión con la ventana emergente de Google
         const result = await auth.signInWithPopup(provider);
         const user = result.user;
-        const email = user.email; // Usamos el email como identificador principal
-        const uid = user.uid; // ID único de Firebase Auth
+        const uid = user.uid; 
         
-        // Usamos el UID o el email (adaptado a tu estructura de DB con "users")
-        const dbId = uid; // Usar el UID de Auth es mejor para evitar problemas con carácteres del email en la URL de DB
+        // 1. Verificar si el UID de Google ya está mapeado a un nombre de usuario
+        const uidSnap = await uidMapRef.child(uid).once("value");
 
-        // 1. Verificar si el usuario ya existe en tu Realtime Database
-        const snap = await usersRef.child(dbId).once("value");
+        if (uidSnap.exists()) {
+          // Usuario REGRESANDO: ya tiene un nombre de usuario asignado
+          const customUser = uidSnap.val();
+          console.log(`Usuario de Google ${customUser} iniciando sesión.`);
 
-        if (!snap.exists()) {
-          // Es un nuevo registro, guardar en tu Realtime Database
-          await usersRef.child(dbId).set({
-            email: email,
-            name: user.displayName || "Google User",
-            verified: true,
-            provider: 'google'
-          });
-          console.log("Nuevo usuario de Google registrado en DB.");
-          // No se descargan credenciales, pero se muestra el modal de éxito.
-          showModal(false); 
+          sessionStorage.setItem("sociosxit_user", customUser);
+          window.location.href = "dashboard.html";
 
         } else {
-          // Es un inicio de sesión existente
-          console.log("Usuario de Google ya existe en DB. Iniciando sesión.");
+          // Usuario NUEVO: Necesita elegir un nombre de usuario
+          googleUserData = user; // Guardar temporalmente la info de Google
+          show("usernamePromptView"); // Mostrar la nueva vista para pedir el usuario
+          document.getElementById("promptUser").value = user.displayName ? user.displayName.replace(/\s/g, '').toLowerCase() : user.email.split('@')[0];
         }
 
-        // 2. Iniciar sesión en la aplicación (usando el UID como identificador)
-        sessionStorage.setItem("sociosxit_user", dbId);
-        window.location.href = "dashboard.html";
-
       } catch (error) {
-        // Manejo de errores (por ejemplo, el usuario cerró el popup)
         console.error("Error en la autenticación con Google:", error);
         if (error.code === 'auth/popup-closed-by-user') {
             alert("La ventana de inicio de sesión con Google fue cerrada.");
@@ -238,7 +242,51 @@
       }
     }
 
-    // Asignar la función a los botones de Google en ambas vistas
+    // LÓGICA PARA EL BOTÓN DE SOLICITAR NOMBRE DE USUARIO
+    document.getElementById("promptUserBtn").onclick = async () => {
+      const customUser = promptUser.value.trim();
+
+      if (!customUser) return alert("Por favor, ingresa un nombre de usuario.");
+      if (customUser.length < 3) return alert("El usuario debe tener al menos 3 caracteres.");
+
+      try {
+        // 1. Verificar si el nombre de usuario ya está tomado
+        const userSnap = await usersRef.child(customUser).once("value");
+        if (userSnap.exists()) return alert(`El usuario '${customUser}' ya existe. Por favor, elige otro.`);
+        
+        // 2. Obtener los datos temporales del usuario de Google
+        const user = googleUserData;
+        const uid = user.uid;
+
+        // 3. Registrar en la base de datos con el nombre de usuario
+        await usersRef.child(customUser).set({
+          uid: uid,
+          email: user.email,
+          name: user.displayName || "Google User",
+          provider: 'google',
+          verified: true,
+          registered_at: new Date().toISOString()
+        });
+
+        // 4. Crear el mapeo UID -> Nombre de usuario
+        await uidMapRef.child(uid).set(customUser);
+
+        // 5. Completar el inicio de sesión
+        sessionStorage.setItem("sociosxit_user", customUser);
+        
+        // Mostrar el modal de éxito para el registro de Google
+        showModal(false, customUser); 
+
+        // Después de cerrar el modal, se redirigirá desde hideModal.
+        // window.location.href = "dashboard.html"; // Comentar, lo maneja el cierre del modal
+
+      } catch (error) {
+        console.error("Error al finalizar el registro de Google:", error);
+        alert("Ocurrió un error al finalizar el registro: " + error.message);
+      }
+    };
+
+    // Asignar la función a los botones de Google
     document.getElementById("googleLoginBtn").onclick = signInWithGoogle;
     document.getElementById("googleRegisterBtn").onclick = signInWithGoogle;
 
