@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Migrar Usuarios a Google</title>
+<title>Migrar Google → Manual</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
@@ -21,35 +21,34 @@
         padding: 15px;
         border-radius: 10px;
         margin-bottom: 12px;
-        border-left: 5px solid #2af599;
+        border-left: 5px solid #ff0080;
     }
     #migrarBtn {
-        background: #2af599;
+        background: #ff0080;
         padding: 12px;
         width: 100%;
         border: none;
-        color: #111;
+        color: #fff;
         font-size: 18px;
         border-radius: 10px;
         cursor: pointer;
         margin-top: 15px;
     }
-    #migrarBtn:hover {
-        background: #23cc81;
-    }
 </style>
 </head>
 <body>
 
-<h2>Migrar Usuario Manual → Google</h2>
+<h2>Migrar cuenta Google → Manual</h2>
 
-<p>1️⃣ Selecciona un usuario manual<br>  
-2️⃣ Inicia sesión con Google<br>  
-3️⃣ Automáticamente se migrarán los datos a la nueva cuenta Google</p>
+<p>1️⃣ Selecciona un usuario Google<br>  
+2️⃣ Ingresa el nuevo nombre manual<br>  
+3️⃣ Se migrarán los datos del UID al usuario manual</p>
 
 <div id="userList">Cargando usuarios...</div>
 
-<button id="migrarBtn">Migrar usuario seleccionado a Google</button>
+<input id="newUser" type="text" placeholder="Nuevo nombre manual" style="width:100%;padding:12px;border-radius:10px;border:none;margin-top:10px;">
+
+<button id="migrarBtn">Migrar de Google a Manual</button>
 
 <script>
 const firebaseConfig = {
@@ -69,33 +68,25 @@ const auth = firebase.auth();
 
 const usersRef = db.ref("users");
 const uidMapRef = db.ref("uid_map");
-
 const container = document.getElementById("userList");
 
 // ---------------------------
-// Cargar usuarios manuales
+// Listar usuarios con Google
 // ---------------------------
 usersRef.on("value", snap => {
     container.innerHTML = "";
     const users = snap.val();
 
-    if (!users) {
-        container.innerHTML = "<p>No hay usuarios registrados.</p>";
-        return;
-    }
-
-    Object.entries(users).forEach(([username, data]) => {
-
-        // Solo usuarios manuales
-        if (data.provider === "google") return;
+    Object.entries(users).forEach(([key, data]) => {
+        if (!data.provider || !data.provider.includes("google")) return;
 
         const box = document.createElement("div");
         box.className = "box";
         box.innerHTML = `
             <label>
-                <input type="radio" name="manualUser" value="${username}">
-                <strong>${username}</strong><br>
-                <small>Email: ${data.email ?? "sin email"}</small>
+                <input type="radio" name="googleUser" value="${key}">
+                <strong>${key}</strong><br>
+                <small>Email: ${data.email}</small>
             </label>
         `;
         container.appendChild(box);
@@ -103,59 +94,45 @@ usersRef.on("value", snap => {
 });
 
 // ---------------------------
-// Migrar datos
+// Migrar Google → Manual
 // ---------------------------
-async function migrarCuenta(manualUser, googleUID) {
-    // 1. Obtener data del usuario manual
-    const snap = await usersRef.child(manualUser).once("value");
-    const manualData = snap.val();
+async function migrarGoogleAManual(uidGoogle, nuevoUsuario) {
+    // Obtener data del Google UID
+    const snap = await usersRef.child(uidGoogle).once("value");
+    const dataGoogle = snap.val();
 
-    if (!manualData) {
-        alert("Error: usuario manual no existe.");
+    if (!dataGoogle) {
+        alert("Error: el usuario Google no existe.");
         return;
     }
 
-    // 2. Guardar el data en la cuenta Google
-    await usersRef.child(googleUID).update(manualData);
+    // Crear usuario manual con los mismos datos
+    await usersRef.child(nuevoUsuario).set({
+        ...dataGoogle,
+        provider: "manual",
+        uid: null
+    });
 
-    // 3. Borrar uid_map si tenía
-    if (manualData.uid) {
-        await uidMapRef.child(manualData.uid).remove();
-    }
+    // Borrar mapeo
+    await uidMapRef.child(uidGoogle).remove();
 
-    // 4. Borrar el usuario manual original
-    await usersRef.child(manualUser).remove();
+    // Borrar cuenta Google
+    await usersRef.child(uidGoogle).remove();
 
-    alert("Migración completada correctamente.");
+    alert("Migración inversa completada!");
 }
 
 // ---------------------------
-// Botón para iniciar migración
+// Botón migrar
 // ---------------------------
 document.getElementById("migrarBtn").onclick = () => {
-    const manualUser = document.querySelector("input[name='manualUser']:checked");
+    const googleUser = document.querySelector("input[name='googleUser']:checked");
+    const nuevoUser = document.getElementById("newUser").value.trim();
 
-    if (!manualUser) {
-        alert("Selecciona un usuario manual.");
-        return;
-    }
+    if (!googleUser) return alert("Selecciona un usuario Google.");
+    if (!nuevoUser) return alert("Escribe un nombre manual.");
 
-    const userName = manualUser.value;
-
-    const provider = new firebase.auth.GoogleAuthProvider();
-
-    // Abrir login Google
-    auth.signInWithPopup(provider)
-        .then(result => {
-            const googleUID = result.user.uid;
-
-            // Ejecutar migración
-            migrarCuenta(userName, googleUID);
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Error al iniciar sesión con Google.");
-        });
+    migrarGoogleAManual(googleUser.value, nuevoUser);
 };
 </script>
 
